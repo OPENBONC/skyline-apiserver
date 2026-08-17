@@ -84,3 +84,7 @@ doc/source/_static
 # MAC OS
 .DS_Store
 .idea
+
+etc/skyline.yaml
+AGENTS.md
+.trae/
