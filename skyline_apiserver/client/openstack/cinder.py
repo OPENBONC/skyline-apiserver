@@ -112,3 +112,98 @@ async def get_volume_snapshot(
         )
     except NotFound as e:
         raise e
+
+
+async def create_volume_snapshot(
+    session: Session,
+    region: str,
+    volume_id: str,
+    global_request_id: Optional[str] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    force: Optional[bool] = None,
+) -> Any:
+    try:
+        cc = await utils.cinder_client(
+            session=session,
+            region=region,
+            global_request_id=global_request_id,
+        )
+        return await run_in_threadpool(
+            cc.volume_snapshots.create,
+            volume_id,
+            name=name,
+            description=description,
+            metadata=metadata,
+            force=force,
+        )
+    except Unauthorized as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+async def delete_volume_snapshot(
+    session: Session,
+    region: str,
+    snapshot_id: str,
+    global_request_id: Optional[str] = None,
+) -> Any:
+    try:
+        cc = await utils.cinder_client(
+            session=session,
+            region=region,
+            global_request_id=global_request_id,
+        )
+        return await run_in_threadpool(cc.volume_snapshots.delete, snapshot_id)
+    except Unauthorized as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+async def list_volume_snapshots_by_session(
+    session: Session,
+    region: str,
+    global_request_id: Optional[str] = None,
+    limit: Optional[int] = None,
+    marker: Optional[str] = None,
+    search_opts: Optional[Dict[str, Any]] = None,
+    sort: Optional[str] = None,
+) -> Any:
+    try:
+        cc = await utils.cinder_client(
+            session=session,
+            region=region,
+            global_request_id=global_request_id,
+        )
+        return await run_in_threadpool(
+            cc.volume_snapshots.list,
+            search_opts=search_opts,
+            limit=limit,
+            marker=marker,
+            sort=sort,
+        )
+    except Unauthorized as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

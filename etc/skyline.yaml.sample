@@ -1,6 +1,7 @@
 default:
   access_token_expire: 3600
   access_token_renew: 1800
+  auto_snapshot_quota: 100
   cafile: ''
   cors_allow_origins: []
   database_url: sqlite:////tmp/skyline.db
@@ -15,6 +16,8 @@ default:
   prometheus_endpoint: http://localhost:9091
   secret_key: aCtmgbcUqYUy_HNVg5BDXCaeJgJQzHJXwqbXr0Nmb2o
   session_name: session
+  snapshot_scheduler_enabled: true
+  snapshot_scheduler_interval: 60
   ssl_enabled: true
 openstack:
   base_domains:

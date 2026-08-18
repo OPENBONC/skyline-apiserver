@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -24,9 +26,12 @@ from skyline_apiserver.config import CONF, configure
 from skyline_apiserver.db import setup as db_setup
 from skyline_apiserver.log import LOG, setup as log_setup
 from skyline_apiserver.policy import setup as policies_setup
+from skyline_apiserver.scheduler import run_snapshot_scheduler
 from skyline_apiserver.types import constants
 
 PROJECT_NAME = "Skyline API"
+
+_scheduler_task: Optional[asyncio.Task] = None
 
 
 async def on_startup() -> None:
@@ -37,6 +42,10 @@ async def on_startup() -> None:
     )
     policies_setup()
     await db_setup()
+
+    global _scheduler_task
+    if CONF.default.snapshot_scheduler_enabled:
+        _scheduler_task = asyncio.create_task(run_snapshot_scheduler())
 
     # Set all CORS enabled origins
     if CONF.default.cors_allow_origins:
@@ -51,6 +60,14 @@ async def on_startup() -> None:
 
 
 async def on_shutdown() -> None:
+    global _scheduler_task
+    if _scheduler_task is not None:
+        _scheduler_task.cancel()
+        try:
+            await _scheduler_task
+        except asyncio.CancelledError:
+            pass
+        _scheduler_task = None
     LOG.debug("Skyline API server stop")
 
 

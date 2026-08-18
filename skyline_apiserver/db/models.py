@@ -32,3 +32,23 @@ Settings = Table(
     Column("key", String(length=128), nullable=False, index=True, unique=True),
     Column("value", JSON, nullable=True),
 )
+
+SnapshotPolicy = Table(
+    "snapshot_policy",
+    METADATA,
+    Column("id", String(length=36), primary_key=True, nullable=False),
+    Column("name", String(length=255), nullable=True),
+    Column("repeat_days", JSON, nullable=False),
+    Column("create_times", JSON, nullable=False),
+    Column("created_at", String(length=32), nullable=False),
+    Column("updated_at", String(length=32), nullable=False),
+)
+
+SnapshotPolicyVolume = Table(
+    "snapshot_policy_volume",
+    METADATA,
+    Column("id", String(length=36), primary_key=True, nullable=False),
+    Column("policy_id", String(length=36), nullable=False, index=True),
+    Column("volume_id", String(length=36), nullable=False, index=True, unique=True),
+    Column("created_at", String(length=32), nullable=False),
+)

@@ -111,6 +111,31 @@ prometheus_basic_auth_password = Opt(
     default="",
 )
 
+snapshot_scheduler_enabled = Opt(
+    name="snapshot_scheduler_enabled",
+    description="Enable scheduled snapshot policy scheduler",
+    schema=StrictBool,
+    default=True,
+)
+
+snapshot_scheduler_interval = Opt(
+    name="snapshot_scheduler_interval",
+    description="The interval (seconds) the scheduled snapshot scheduler checks policies",
+    schema=StrictInt,
+    default=60,
+)
+
+auto_snapshot_quota = Opt(
+    name="auto_snapshot_quota",
+    description=(
+        "The maximum number of auto snapshots kept for each volume. "
+        "When exceeded, the oldest snapshots created by the scheduled "
+        "snapshot policies will be deleted automatically."
+    ),
+    schema=StrictInt,
+    default=100,
+)
+
 ssl_enabled = Opt(
     name="ssl_enabled",
     description="Enable ssl",
@@ -157,6 +182,9 @@ ALL_OPTS = (
     prometheus_enable_basic_auth,
     prometheus_basic_auth_user,
     prometheus_basic_auth_password,
+    snapshot_scheduler_enabled,
+    snapshot_scheduler_interval,
+    auto_snapshot_quota,
     policy_file_suffix,
     policy_file_path,
 )
