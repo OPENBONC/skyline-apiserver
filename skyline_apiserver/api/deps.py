@@ -82,3 +82,12 @@ async def get_profile_update_jwt(request: Request, response: Response) -> schema
         response.set_cookie(CONF.default.session_name, profile.toJWTPayload())
         response.set_cookie(constants.TIME_EXPIRED_KEY, str(profile.exp))
     return profile
+
+
+async def get_profile_update_jwt_optional(
+    request: Request, response: Response
+) -> Optional[schemas.Profile]:
+    try:
+        return await get_profile_update_jwt(request, response)
+    except HTTPException:
+        return None

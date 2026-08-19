@@ -14,9 +14,13 @@
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Column, Integer, MetaData, String, Table
+from sqlalchemy import JSON, BigInteger, Column, Index, Integer, MetaData, String, Table, Text
+from sqlalchemy.dialects import mysql
 
 METADATA = MetaData()
+
+LONGTEXT = Text().with_variant(mysql.LONGTEXT(), "mysql")
+MYSQL_TIMESTAMP = BigInteger().with_variant(mysql.BIGINT(unsigned=True), "mysql")
 
 
 RevokedToken = Table(
@@ -51,4 +55,74 @@ SnapshotPolicyVolume = Table(
     Column("policy_id", String(length=36), nullable=False, index=True),
     Column("volume_id", String(length=36), nullable=False, index=True, unique=True),
     Column("created_at", String(length=32), nullable=False),
+)
+
+AuditLog = Table(
+    "audit_log",
+    METADATA,
+    Column("id", String(length=32), nullable=False, primary_key=True),
+    Column("domain_id", String(length=64), nullable=False),
+    Column("domain_name", String(length=255), nullable=True),
+    Column("project_id", String(length=64), nullable=True),
+    Column("project_name", String(length=255), nullable=True),
+    Column("user_id", String(length=64), nullable=False),
+    Column("user_name", String(length=255), nullable=True),
+    Column("module", String(length=128), nullable=True),
+    Column("action", String(length=255), nullable=True),
+    Column("targets", LONGTEXT, nullable=True),
+    Column("target_names", Text, nullable=True),
+    Column("source_ip", String(length=45), nullable=True),
+    Column("request_result", String(length=128), nullable=True),
+    Column("created_at", MYSQL_TIMESTAMP, nullable=False),
+    Column("updated_at", MYSQL_TIMESTAMP, nullable=False),
+)
+
+AuditLogDetail = Table(
+    "audit_log_detail",
+    METADATA,
+    Column("log_id", String(length=32), nullable=False, primary_key=True),
+    Column("trace_id", String(length=128), nullable=True),
+    Column("request_method", String(length=16), nullable=True),
+    Column("request_path", String(length=2048), nullable=True),
+    Column("request_body", LONGTEXT, nullable=True),
+    Column("http_code", Integer, nullable=True),
+    Column("error_code", String(length=128), nullable=True),
+    Column("error_message", LONGTEXT, nullable=True),
+    Column("created_at", MYSQL_TIMESTAMP, nullable=False),
+    Column("updated_at", MYSQL_TIMESTAMP, nullable=False),
+)
+
+Index(
+    "idx_logs_domain_created_id",
+    AuditLog.c.domain_id,
+    AuditLog.c.created_at,
+    AuditLog.c.id,
+)
+Index(
+    "idx_logs_domain_project_created_id",
+    AuditLog.c.domain_id,
+    AuditLog.c.project_id,
+    AuditLog.c.created_at,
+    AuditLog.c.id,
+)
+Index(
+    "idx_logs_domain_module_created_id",
+    AuditLog.c.domain_id,
+    AuditLog.c.module,
+    AuditLog.c.created_at,
+    AuditLog.c.id,
+)
+Index(
+    "idx_logs_domain_action_created_id",
+    AuditLog.c.domain_id,
+    AuditLog.c.action,
+    AuditLog.c.created_at,
+    AuditLog.c.id,
+)
+Index(
+    "idx_logs_domain_result_created_id",
+    AuditLog.c.domain_id,
+    AuditLog.c.request_result,
+    AuditLog.c.created_at,
+    AuditLog.c.id,
 )

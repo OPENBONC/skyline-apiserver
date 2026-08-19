@@ -2122,10 +2122,711 @@
                     }
                 }
             }
+        },
+        "/api/v1/audit/logs": {
+            "get": {
+                "tags": [
+                    "Audit Log"
+                ],
+                "summary": "List Audit Logs",
+                "description": "List audit logs.",
+                "operationId": "list_audit_logs_api_v1_audit_logs_get",
+                "parameters": [
+                    {
+                        "description": "\u9879\u76ee ID\uff0c\u7cbe\u786e\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Project Id",
+                            "type": "string",
+                            "description": "\u9879\u76ee ID\uff0c\u7cbe\u786e\u5339\u914d"
+                        },
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u8bf7\u6c42\u65f6\u95f4\u8303\u56f4\u5f00\u59cb\u503c\uff0c\u6beb\u79d2\u65f6\u95f4\u6233",
+                        "required": false,
+                        "schema": {
+                            "title": "Start Time",
+                            "type": "integer",
+                            "description": "\u8bf7\u6c42\u65f6\u95f4\u8303\u56f4\u5f00\u59cb\u503c\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                        },
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u8bf7\u6c42\u65f6\u95f4\u8303\u56f4\u7ed3\u675f\u503c\uff0c\u6beb\u79d2\u65f6\u95f4\u6233",
+                        "required": false,
+                        "schema": {
+                            "title": "End Time",
+                            "type": "integer",
+                            "description": "\u8bf7\u6c42\u65f6\u95f4\u8303\u56f4\u7ed3\u675f\u503c\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                        },
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u64cd\u4f5c\u4eba\u540d\u79f0\uff0c\u5ffd\u7565\u5927\u5c0f\u5199\u7684\u6a21\u7cca\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Operator Name",
+                            "type": "string",
+                            "description": "\u64cd\u4f5c\u4eba\u540d\u79f0\uff0c\u5ffd\u7565\u5927\u5c0f\u5199\u7684\u6a21\u7cca\u5339\u914d"
+                        },
+                        "name": "operator_name",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u6240\u5c5e\u6a21\u5757\uff0c\u7cbe\u786e\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Module",
+                            "type": "string",
+                            "description": "\u6240\u5c5e\u6a21\u5757\uff0c\u7cbe\u786e\u5339\u914d"
+                        },
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u52a8\u4f5c\u7c7b\u578b\uff0c\u7cbe\u786e\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Action",
+                            "type": "string",
+                            "description": "\u52a8\u4f5c\u7c7b\u578b\uff0c\u7cbe\u786e\u5339\u914d"
+                        },
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u8bf7\u6c42\u7ed3\u679c\uff0c\u7cbe\u786e\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Request Result",
+                            "type": "string",
+                            "description": "\u8bf7\u6c42\u7ed3\u679c\uff0c\u7cbe\u786e\u5339\u914d"
+                        },
+                        "name": "request_result",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61\u540d\u79f0\uff0c\u5ffd\u7565\u5927\u5c0f\u5199\u7684\u6a21\u7cca\u5339\u914d",
+                        "required": false,
+                        "schema": {
+                            "title": "Target Name",
+                            "type": "string",
+                            "description": "\u64cd\u4f5c\u5bf9\u8c61\u540d\u79f0\uff0c\u5ffd\u7565\u5927\u5c0f\u5199\u7684\u6a21\u7cca\u5339\u914d"
+                        },
+                        "name": "target_name",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u9875\u7801",
+                        "required": false,
+                        "schema": {
+                            "title": "Page",
+                            "minimum": 1.0,
+                            "type": "integer",
+                            "description": "\u9875\u7801",
+                            "default": 1
+                        },
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "description": "\u6bcf\u9875\u5927\u5c0f",
+                        "required": false,
+                        "schema": {
+                            "title": "Size",
+                            "maximum": 100.0,
+                            "minimum": 1.0,
+                            "type": "integer",
+                            "description": "\u6bcf\u9875\u5927\u5c0f",
+                            "default": 10
+                        },
+                        "name": "size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuditLogListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BadRequestMessage"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnauthorizedMessage"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Audit Log"
+                ],
+                "summary": "Create Audit Log",
+                "description": "Create an audit log.",
+                "operationId": "create_audit_log_api_v1_audit_logs_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AuditLogCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuditLogView"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnauthorizedMessage"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/audit/logs/{log_id}": {
+            "get": {
+                "tags": [
+                    "Audit Log"
+                ],
+                "summary": "Get Audit Log Detail",
+                "description": "Get an audit log detail.",
+                "operationId": "get_audit_log_detail_api_v1_audit_logs__log_id__get",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Log Id",
+                            "type": "string"
+                        },
+                        "name": "log_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuditLogDetailView"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnauthorizedMessage"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotFoundMessage"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Audit Log"
+                ],
+                "summary": "Update Audit Log",
+                "description": "Update an audit log result information.",
+                "operationId": "update_audit_log_api_v1_audit_logs__log_id__put",
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "title": "Log Id",
+                            "type": "string"
+                        },
+                        "name": "log_id",
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AuditLogUpdate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnauthorizedMessage"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotFoundMessage"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "AuditLogCreate": {
+                "title": "AuditLogCreate",
+                "required": [
+                    "project_id",
+                    "project_name",
+                    "module",
+                    "action",
+                    "trace_id",
+                    "request_method",
+                    "request_path"
+                ],
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "title": "Project Id",
+                        "type": "string",
+                        "description": "\u9879\u76ee ID"
+                    },
+                    "project_name": {
+                        "title": "Project Name",
+                        "type": "string",
+                        "description": "\u9879\u76ee\u540d\u79f0"
+                    },
+                    "module": {
+                        "title": "Module",
+                        "type": "string",
+                        "description": "\u6240\u5c5e\u6a21\u5757"
+                    },
+                    "action": {
+                        "title": "Action",
+                        "type": "string",
+                        "description": "\u52a8\u4f5c\u7c7b\u578b"
+                    },
+                    "targets": {
+                        "title": "Targets",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Target"
+                        },
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61\u6570\u7ec4"
+                    },
+                    "trace_id": {
+                        "title": "Trace Id",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42 ID"
+                    },
+                    "request_method": {
+                        "title": "Request Method",
+                        "type": "string",
+                        "description": "HTTP \u8bf7\u6c42\u65b9\u6cd5"
+                    },
+                    "request_path": {
+                        "title": "Request Path",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u8def\u5f84\uff0c\u5141\u8bb8\u5305\u542b query string"
+                    },
+                    "request_body": {
+                        "title": "Request Body",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u4f53\u6587\u672c"
+                    },
+                    "request_result": {
+                        "title": "Request Result",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u7ed3\u679c"
+                    },
+                    "http_code": {
+                        "title": "Http Code",
+                        "type": "integer",
+                        "description": "HTTP \u72b6\u6001\u7801"
+                    },
+                    "error_code": {
+                        "title": "Error Code",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u7801"
+                    },
+                    "error_message": {
+                        "title": "Error Message",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u4fe1\u606f"
+                    }
+                }
+            },
+            "AuditLogDetailView": {
+                "title": "AuditLogDetailView",
+                "required": [
+                    "id",
+                    "domain_id",
+                    "user_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "title": "Id",
+                        "type": "string",
+                        "description": "\u65e5\u5fd7 ID"
+                    },
+                    "domain_id": {
+                        "title": "Domain Id",
+                        "type": "string",
+                        "description": "\u4f01\u4e1a ID"
+                    },
+                    "domain_name": {
+                        "title": "Domain Name",
+                        "type": "string",
+                        "description": "\u4f01\u4e1a\u540d\u79f0"
+                    },
+                    "project_id": {
+                        "title": "Project Id",
+                        "type": "string",
+                        "description": "\u9879\u76ee ID"
+                    },
+                    "project_name": {
+                        "title": "Project Name",
+                        "type": "string",
+                        "description": "\u9879\u76ee\u540d\u79f0"
+                    },
+                    "user_id": {
+                        "title": "User Id",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u4eba ID"
+                    },
+                    "user_name": {
+                        "title": "User Name",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u4eba\u540d\u79f0"
+                    },
+                    "module": {
+                        "title": "Module",
+                        "type": "string",
+                        "description": "\u6240\u5c5e\u6a21\u5757"
+                    },
+                    "action": {
+                        "title": "Action",
+                        "type": "string",
+                        "description": "\u52a8\u4f5c\u7c7b\u578b"
+                    },
+                    "targets": {
+                        "title": "Targets",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Target"
+                        },
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61\u6570\u7ec4"
+                    },
+                    "source_ip": {
+                        "title": "Source Ip",
+                        "type": "string",
+                        "description": "\u6765\u6e90 IP"
+                    },
+                    "created_at": {
+                        "title": "Created At",
+                        "type": "integer",
+                        "description": "\u521b\u5efa\u65f6\u95f4\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                    },
+                    "updated_at": {
+                        "title": "Updated At",
+                        "type": "integer",
+                        "description": "\u66f4\u65b0\u65f6\u95f4\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                    },
+                    "request_result": {
+                        "title": "Request Result",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u7ed3\u679c"
+                    },
+                    "trace_id": {
+                        "title": "Trace Id",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42 ID"
+                    },
+                    "request_method": {
+                        "title": "Request Method",
+                        "type": "string",
+                        "description": "HTTP \u8bf7\u6c42\u65b9\u6cd5"
+                    },
+                    "request_path": {
+                        "title": "Request Path",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u8def\u5f84"
+                    },
+                    "request_body": {
+                        "title": "Request Body",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u4f53\u6587\u672c"
+                    },
+                    "http_code": {
+                        "title": "Http Code",
+                        "type": "integer",
+                        "description": "HTTP \u72b6\u6001\u7801"
+                    },
+                    "error_code": {
+                        "title": "Error Code",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u7801"
+                    },
+                    "error_message": {
+                        "title": "Error Message",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u4fe1\u606f"
+                    }
+                }
+            },
+            "AuditLogListResponse": {
+                "title": "AuditLogListResponse",
+                "required": [
+                    "total",
+                    "page",
+                    "size"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "title": "Total",
+                        "type": "integer",
+                        "description": "\u547d\u4e2d\u603b\u6570"
+                    },
+                    "page": {
+                        "title": "Page",
+                        "type": "integer",
+                        "description": "\u5f53\u524d\u9875\u7801"
+                    },
+                    "size": {
+                        "title": "Size",
+                        "type": "integer",
+                        "description": "\u6bcf\u9875\u5927\u5c0f"
+                    },
+                    "items": {
+                        "title": "Items",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditLogView"
+                        },
+                        "description": "\u65e5\u5fd7\u5217\u8868"
+                    }
+                }
+            },
+            "AuditLogUpdate": {
+                "title": "AuditLogUpdate",
+                "type": "object",
+                "properties": {
+                    "request_result": {
+                        "title": "Request Result",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u7ed3\u679c"
+                    },
+                    "http_code": {
+                        "title": "Http Code",
+                        "type": "integer",
+                        "description": "HTTP \u72b6\u6001\u7801"
+                    },
+                    "error_code": {
+                        "title": "Error Code",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u7801"
+                    },
+                    "error_message": {
+                        "title": "Error Message",
+                        "type": "string",
+                        "description": "\u9519\u8bef\u4fe1\u606f"
+                    },
+                    "action": {
+                        "title": "Action",
+                        "type": "string",
+                        "description": "\u52a8\u4f5c\u7c7b\u578b"
+                    }
+                }
+            },
+            "AuditLogView": {
+                "title": "AuditLogView",
+                "required": [
+                    "id",
+                    "domain_id",
+                    "user_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "title": "Id",
+                        "type": "string",
+                        "description": "\u65e5\u5fd7 ID"
+                    },
+                    "domain_id": {
+                        "title": "Domain Id",
+                        "type": "string",
+                        "description": "\u4f01\u4e1a ID"
+                    },
+                    "domain_name": {
+                        "title": "Domain Name",
+                        "type": "string",
+                        "description": "\u4f01\u4e1a\u540d\u79f0"
+                    },
+                    "project_id": {
+                        "title": "Project Id",
+                        "type": "string",
+                        "description": "\u9879\u76ee ID"
+                    },
+                    "project_name": {
+                        "title": "Project Name",
+                        "type": "string",
+                        "description": "\u9879\u76ee\u540d\u79f0"
+                    },
+                    "user_id": {
+                        "title": "User Id",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u4eba ID"
+                    },
+                    "user_name": {
+                        "title": "User Name",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u4eba\u540d\u79f0"
+                    },
+                    "module": {
+                        "title": "Module",
+                        "type": "string",
+                        "description": "\u6240\u5c5e\u6a21\u5757"
+                    },
+                    "action": {
+                        "title": "Action",
+                        "type": "string",
+                        "description": "\u52a8\u4f5c\u7c7b\u578b"
+                    },
+                    "targets": {
+                        "title": "Targets",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Target"
+                        },
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61\u6570\u7ec4"
+                    },
+                    "source_ip": {
+                        "title": "Source Ip",
+                        "type": "string",
+                        "description": "\u6765\u6e90 IP"
+                    },
+                    "created_at": {
+                        "title": "Created At",
+                        "type": "integer",
+                        "description": "\u521b\u5efa\u65f6\u95f4\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                    },
+                    "updated_at": {
+                        "title": "Updated At",
+                        "type": "integer",
+                        "description": "\u66f4\u65b0\u65f6\u95f4\uff0c\u6beb\u79d2\u65f6\u95f4\u6233"
+                    },
+                    "request_result": {
+                        "title": "Request Result",
+                        "type": "string",
+                        "description": "\u8bf7\u6c42\u7ed3\u679c"
+                    }
+                }
+            },
             "BadRequestMessage": {
                 "title": "BadRequestMessage",
                 "required": [
@@ -3418,6 +4119,27 @@
                 ],
                 "type": "string",
                 "description": "An enumeration."
+            },
+            "Target": {
+                "title": "Target",
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "title": "Id",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61 ID"
+                    },
+                    "name": {
+                        "title": "Name",
+                        "type": "string",
+                        "description": "\u64cd\u4f5c\u5bf9\u8c61\u540d\u79f0"
+                    },
+                    "type": {
+                        "title": "Type",
+                        "type": "string",
+                        "description": "\u8d44\u6e90\u7c7b\u578b"
+                    }
+                }
             },
             "UnauthorizedMessage": {
                 "title": "UnauthorizedMessage",

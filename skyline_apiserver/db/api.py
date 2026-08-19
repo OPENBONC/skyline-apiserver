@@ -17,14 +17,16 @@ from __future__ import annotations
 import time
 import uuid
 from functools import wraps
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, func, insert, literal, select, update
 
 from skyline_apiserver.types import Fn
 
 from .base import DB, inject_db
-from .models import RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume
+from .models import RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume, AuditLog, AuditLogDetail, RevokedToken, Settings
+
+MAX_QUERY_LIMIT = 10000
 
 
 def check_db_connected(fn: Fn) -> Any:
@@ -307,3 +309,200 @@ async def get_volume_policy(volume_id: str) -> Any:
         result = await db.fetch_one(query)
 
     return result
+
+
+async def create_audit_log(
+    main_values: Dict[str, Any],
+    detail_values: Dict[str, Any],
+    now_ms: int,
+) -> None:
+    main_values["created_at"] = now_ms
+    main_values["updated_at"] = now_ms
+    detail_values["created_at"] = now_ms
+    detail_values["updated_at"] = now_ms
+    db = DB.get()
+    async with db.transaction():
+        await db.execute(insert(AuditLog), main_values)
+        await db.execute(insert(AuditLogDetail), detail_values)
+
+
+@check_db_connected
+async def update_audit_log(
+    log_id: str,
+    domain_id: str,
+    now_ms: int,
+    request_result: Optional[str] = None,
+    http_code: Optional[int] = None,
+    error_code: Optional[str] = None,
+    error_message: Optional[str] = None,
+    domain_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_name: Optional[str] = None,
+) -> str:
+    db = DB.get()
+    async with db.transaction():
+        main_query = select(
+            [
+                AuditLog.c.id,
+                AuditLog.c.request_result,
+                AuditLog.c.domain_name,
+                AuditLog.c.user_id,
+                AuditLog.c.user_name,
+            ]
+        ).where(AuditLog.c.id == log_id, AuditLog.c.domain_id == domain_id)
+        main_row = await db.fetch_one(main_query)
+
+        allow_bare_update = False
+        if main_row is None:
+            detail_query = select([AuditLogDetail.c.request_path]).where(
+                AuditLogDetail.c.log_id == log_id
+            )
+            detail_row = await db.fetch_one(detail_query)
+            if detail_row and detail_row["request_path"]:
+                path = detail_row["request_path"].lower()
+                if "login" in path or "logout" in path:
+                    bare_query = select(
+                        [
+                            AuditLog.c.id,
+                            AuditLog.c.request_result,
+                            AuditLog.c.domain_name,
+                            AuditLog.c.user_id,
+                            AuditLog.c.user_name,
+                        ]
+                    ).where(AuditLog.c.id == log_id)
+                    main_row = await db.fetch_one(bare_query)
+                    allow_bare_update = True
+
+        if main_row is None:
+            return "not_found"
+
+        changed_main = request_result is not None and request_result != main_row["request_result"]
+        main_updates: Dict[str, Any] = {}
+        if domain_name is not None and domain_name != main_row["domain_name"]:
+            main_updates["domain_name"] = domain_name
+        if user_id is not None and user_id != main_row["user_id"]:
+            main_updates["user_id"] = user_id
+        if user_name is not None and user_name != main_row["user_name"]:
+            main_updates["user_name"] = user_name
+        if main_updates:
+            changed_main = True
+
+        changed_detail = False
+        if http_code is not None or error_code is not None or error_message is not None:
+            detail_query = select([AuditLogDetail]).where(AuditLogDetail.c.log_id == log_id)
+            detail_row = await db.fetch_one(detail_query)
+            if detail_row is not None:
+                changed_detail = (
+                    (http_code is not None and http_code != detail_row["http_code"])
+                    or (error_code is not None and error_code != detail_row["error_code"])
+                    or (
+                        error_message is not None and error_message != detail_row["error_message"]
+                    )
+                )
+
+        if changed_main:
+            main_update_query = update(AuditLog)
+            if allow_bare_update:
+                main_update_query = main_update_query.where(AuditLog.c.id == log_id)
+            else:
+                main_update_query = main_update_query.where(
+                    AuditLog.c.id == log_id, AuditLog.c.domain_id == domain_id
+                )
+            update_values: Dict[str, Any] = {"updated_at": now_ms}
+            if request_result is not None:
+                update_values["request_result"] = request_result
+            update_values.update(main_updates)
+            await db.execute(main_update_query, update_values)
+
+        if changed_detail:
+            detail_values: Dict[str, Any] = {"updated_at": now_ms}
+            if http_code is not None:
+                detail_values["http_code"] = http_code
+            if error_code is not None:
+                detail_values["error_code"] = error_code
+            if error_message is not None:
+                detail_values["error_message"] = error_message
+            await db.execute(
+                update(AuditLogDetail).where(AuditLogDetail.c.log_id == log_id),
+                detail_values,
+            )
+
+        if changed_main or changed_detail:
+            return "updated"
+        return "no_change"
+
+
+@check_db_connected
+async def get_audit_log(log_id: str, domain_id: str) -> Any:
+    query = select([AuditLog]).where(AuditLog.c.id == log_id, AuditLog.c.domain_id == domain_id)
+    db = DB.get()
+    async with db.transaction():
+        return await db.fetch_one(query)
+
+
+@check_db_connected
+async def get_audit_log_detail(log_id: str) -> Any:
+    query = select([AuditLogDetail]).where(AuditLogDetail.c.log_id == log_id)
+    db = DB.get()
+    async with db.transaction():
+        return await db.fetch_one(query)
+
+
+@check_db_connected
+async def list_audit_logs(
+    domain_name: str,
+    page: int = 1,
+    size: int = 10,
+    project_id: Optional[str] = None,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    operator_name: Optional[str] = None,
+    module: Optional[str] = None,
+    action: Optional[str] = None,
+    request_result: Optional[str] = None,
+    target_name: Optional[str] = None,
+) -> Tuple[int, List[Any]]:
+    conditions = [AuditLog.c.domain_name == domain_name]
+    if project_id:
+        conditions.append(AuditLog.c.project_id == project_id)
+    if start_time is not None:
+        conditions.append(AuditLog.c.created_at >= start_time)
+    if end_time is not None:
+        conditions.append(AuditLog.c.created_at <= end_time)
+    if operator_name:
+        conditions.append(func.lower(AuditLog.c.user_name).like(f"%{operator_name.lower()}%"))
+    if module:
+        conditions.append(AuditLog.c.module == module)
+    if action:
+        conditions.append(AuditLog.c.action == action)
+    if request_result:
+        conditions.append(AuditLog.c.request_result == request_result)
+    if target_name:
+        conditions.append(func.lower(AuditLog.c.target_names).like(f"%{target_name.lower()}%"))
+
+    db = DB.get()
+    async with db.transaction():
+        count_query = select([func.count().label("total")]).select_from(
+            select([literal(1)])
+            .select_from(AuditLog)
+            .where(*conditions)
+            .limit(MAX_QUERY_LIMIT + 1)
+            .subquery()
+        )
+        count_row = await db.fetch_one(count_query)
+        total = min(int(count_row["total"]), MAX_QUERY_LIMIT) if count_row else 0
+
+        offset = (page - 1) * size
+        rows: List[Any] = []
+        if offset < MAX_QUERY_LIMIT:
+            limit = min(size, MAX_QUERY_LIMIT - offset)
+            query = (
+                select([AuditLog])
+                .where(*conditions)
+                .order_by(AuditLog.c.created_at.desc(), AuditLog.c.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            rows = await db.fetch_all(query)
+
+    return total, rows
