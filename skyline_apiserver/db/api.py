@@ -19,7 +19,7 @@ import uuid
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import delete, func, insert, literal, select, update
+from sqlalchemy import delete, func, insert, literal, or_, select, update
 
 from skyline_apiserver.types import Fn
 
@@ -433,8 +433,8 @@ async def update_audit_log(
 
 
 @check_db_connected
-async def get_audit_log(log_id: str, domain_id: str) -> Any:
-    query = select([AuditLog]).where(AuditLog.c.id == log_id, AuditLog.c.domain_id == domain_id)
+async def get_audit_log(log_id: str, domain_name: str) -> Any:
+    query = select([AuditLog]).where(AuditLog.c.id == log_id, AuditLog.c.domain_name == domain_name)
     db = DB.get()
     async with db.transaction():
         return await db.fetch_one(query)
@@ -460,7 +460,7 @@ async def list_audit_logs(
     module: Optional[str] = None,
     action: Optional[str] = None,
     request_result: Optional[str] = None,
-    target_name: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> Tuple[int, List[Any]]:
     conditions = [AuditLog.c.domain_name == domain_name]
     if project_id:
@@ -477,8 +477,14 @@ async def list_audit_logs(
         conditions.append(AuditLog.c.action == action)
     if request_result:
         conditions.append(AuditLog.c.request_result == request_result)
-    if target_name:
-        conditions.append(func.lower(AuditLog.c.target_names).like(f"%{target_name.lower()}%"))
+    if target:
+        escaped = target.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").lower()
+        conditions.append(
+            or_(
+                func.lower(AuditLog.c.targets).like(f'%"id": "%{escaped}%"%', escape="\\"),
+                func.lower(AuditLog.c.targets).like(f'%"name": "%{escaped}%"%', escape="\\"),
+            )
+        )
 
     db = DB.get()
     async with db.transaction():

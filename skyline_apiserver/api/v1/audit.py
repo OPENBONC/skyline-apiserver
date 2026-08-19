@@ -253,7 +253,7 @@ async def list_audit_logs(
     module: Optional[str] = Query(None, description="所属模块，精确匹配"),
     action: Optional[str] = Query(None, description="动作类型，精确匹配"),
     request_result: Optional[str] = Query(None, description="请求结果，精确匹配"),
-    target_name: Optional[str] = Query(None, description="操作对象名称，忽略大小写的模糊匹配"),
+    target: Optional[str] = Query(None, description="操作对象 ID 或名称，忽略大小写的模糊匹配"),
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(10, ge=1, le=100, description="每页大小"),
     profile: schemas.Profile = Depends(deps.get_profile_update_jwt),
@@ -275,7 +275,7 @@ async def list_audit_logs(
         module=module or None,
         action=action or None,
         request_result=request_result or None,
-        target_name=target_name or None,
+        target=target or None,
     )
     return schemas.AuditLogListResponse(
         total=total,
@@ -301,7 +301,7 @@ async def get_audit_log_detail(
     log_id: str,
     profile: schemas.Profile = Depends(deps.get_profile_update_jwt),
 ) -> schemas.AuditLogDetailView:
-    row = await db_api.get_audit_log(log_id, profile.user.domain.id)
+    row = await db_api.get_audit_log(log_id, profile.user.domain.name)
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

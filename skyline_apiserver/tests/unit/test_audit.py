@@ -322,7 +322,7 @@ async def test_list_audit_logs_filters_and_pagination(audit_tables):
             action="create_server",
             request_result="success",
             user_name="Bob",
-            target_names="db-01,web-01",
+            targets=json.dumps([{"id": "srv-2", "name": "db-01", "type": "server"}]),
             project_id="p-2",
             project_name="prod",
         ),
@@ -355,7 +355,11 @@ async def test_list_audit_logs_filters_and_pagination(audit_tables):
     assert total == 1
     assert rows[0]["id"] == ids[2]
 
-    total, rows = await db_api.list_audit_logs(domain_id=DOMAIN_ID, target_name="DB-01")
+    total, rows = await db_api.list_audit_logs(domain_id=DOMAIN_ID, target="DB-01")
+    assert total == 1
+    assert rows[0]["id"] == ids[2]
+
+    total, rows = await db_api.list_audit_logs(domain_id=DOMAIN_ID, target="srv-2")
     assert total == 1
     assert rows[0]["id"] == ids[2]
 
