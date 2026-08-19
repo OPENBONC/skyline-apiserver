@@ -195,6 +195,8 @@ Install & Run
       $ source .tox/venv/bin/activate
       $ uvicorn --reload --reload-dir skyline_apiserver --port 28000 --log-level debug skyline_apiserver.main:app
 
+      # uvicorn --reload --reload-dir skyline_apiserver --port 28000 --host 0.0.0.0 --log-level debug skyline_apiserver.main:app
+
       INFO:     Uvicorn running on http://127.0.0.1:28000 (Press CTRL+C to quit)
       INFO:     Started reloader process [154033] using statreload
       INFO:     Started server process [154037]

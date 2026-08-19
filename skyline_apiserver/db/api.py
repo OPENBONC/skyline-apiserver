@@ -21,12 +21,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import delete, func, insert, literal, or_, select, update
 
-from skyline_apiserver.types import Fn
+from skyline_apiserver.types import Fn, constants
 
 from .base import DB, inject_db
 from .models import RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume, AuditLog, AuditLogDetail, RevokedToken, Settings
 
 MAX_QUERY_LIMIT = 10000
+from .models import QuotaOrder, RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume
 
 
 def check_db_connected(fn: Fn) -> Any:
@@ -100,7 +101,9 @@ async def get_setting(key: str) -> Any:
 @check_db_connected
 async def update_setting(key: str, value: Any) -> Any:
     get_query = (
-        select([Settings.c.key, Settings.c.value]).where(Settings.c.key == key).with_for_update()
+        select([Settings.c.key, Settings.c.value])
+        .where(Settings.c.key == key)
+        .with_for_update()
     )
     db = DB.get()
     async with db.transaction():
@@ -311,6 +314,7 @@ async def get_volume_policy(volume_id: str) -> Any:
     return result
 
 
+<<<<<<< HEAD
 async def create_audit_log(
     main_values: Dict[str, Any],
     detail_values: Dict[str, Any],
@@ -512,3 +516,92 @@ async def list_audit_logs(
             rows = await db.fetch_all(query)
 
     return total, rows
+=======
+@check_db_connected
+async def list_quota_orders(
+    user_id: Optional[str] = None,
+    statuses: Optional[List[str]] = None,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> Any:
+    count_label = "count"
+    count_query = select([func.count(QuotaOrder.c.id).label(count_label)])
+    query = select([QuotaOrder]).order_by(QuotaOrder.c.created_at.desc())
+    if user_id:
+        count_query = count_query.where(QuotaOrder.c.user_id == user_id)
+        query = query.where(QuotaOrder.c.user_id == user_id)
+    if statuses:
+        count_query = count_query.where(QuotaOrder.c.status.in_(statuses))
+        query = query.where(QuotaOrder.c.status.in_(statuses))
+    if search:
+        count_query = count_query.where(QuotaOrder.c.id == search)
+        query = query.where(QuotaOrder.c.id == search)
+    if offset is not None:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+
+    db = DB.get()
+    async with db.transaction():
+        count = await db.fetch_val(count_query)
+        result = await db.fetch_all(query)
+
+    return result, count or 0
+
+
+@check_db_connected
+async def get_quota_order(order_id: str) -> Any:
+    query = select([QuotaOrder]).where(QuotaOrder.c.id == order_id)
+    db = DB.get()
+    async with db.transaction():
+        result = await db.fetch_one(query)
+
+    return result
+
+
+@check_db_connected
+async def create_quota_order(
+    order_id: str,
+    title: str,
+    quota: Any,
+    user_id: str,
+    user_name: str,
+    project_id: str,
+    project_name: Optional[str],
+) -> Any:
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    db = DB.get()
+    async with db.transaction():
+        result = await db.execute(
+            insert(QuotaOrder),
+            {
+                "id": order_id,
+                "title": title,
+                "quota": quota,
+                "status": constants.QUOTA_ORDER_STATUS_PENDING,
+                "user_id": user_id,
+                "user_name": user_name,
+                "project_id": project_id,
+                "project_name": project_name,
+                "created_at": now,
+                "ended_at": None,
+            },
+        )
+
+    return result
+
+
+@check_db_connected
+async def update_quota_order_status(order_id: str, status: str) -> Any:
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    db = DB.get()
+    async with db.transaction():
+        result = await db.execute(
+            update(QuotaOrder)
+            .where(QuotaOrder.c.id == order_id)
+            .values(status=status, ended_at=now),
+        )
+
+    return result
+>>>>>>> 29318e5 (feat: Add applying quota orders)

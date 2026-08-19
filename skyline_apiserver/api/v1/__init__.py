@@ -15,12 +15,13 @@
 from fastapi import APIRouter
 
 from skyline_apiserver.api.v1 import (
-    audit, 
+    audit,
     contrib,
     extension,
     login,
     policy,
     prometheus,
+    quota_order,
     setting,
     snapshot_policy,
 )
@@ -34,3 +35,4 @@ api_router.include_router(policy.router, tags=["Policy"])
 api_router.include_router(setting.router, tags=["Setting"])
 api_router.include_router(snapshot_policy.router, tags=["SnapshotPolicy"])
 api_router.include_router(audit.router, tags=["Audit Log"])
+api_router.include_router(quota_order.router, tags=["QuotaOrder"])

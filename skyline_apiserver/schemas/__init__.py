@@ -61,6 +61,7 @@ from .prometheus import (
     PrometheusQueryResponse,
     PrometheusQueryResult,
 )
+from .quota_order import QuotaOrderCreate, QuotaOrderListResponse, QuotaOrderResponse
 from .setting import Setting, Settings, UpdateSetting
 from .snapshot_policy import (
     AvailableVolumeResponse,
