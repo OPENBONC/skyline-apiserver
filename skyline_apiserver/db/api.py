@@ -314,7 +314,6 @@ async def get_volume_policy(volume_id: str) -> Any:
     return result
 
 
-<<<<<<< HEAD
 async def create_audit_log(
     main_values: Dict[str, Any],
     detail_values: Dict[str, Any],
@@ -516,7 +515,8 @@ async def list_audit_logs(
             rows = await db.fetch_all(query)
 
     return total, rows
-=======
+
+
 @check_db_connected
 async def list_quota_orders(
     user_id: Optional[str] = None,
@@ -604,4 +604,3 @@ async def update_quota_order_status(order_id: str, status: str) -> Any:
         )
 
     return result
->>>>>>> 29318e5 (feat: Add applying quota orders)
