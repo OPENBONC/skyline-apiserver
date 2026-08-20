@@ -187,6 +187,10 @@ async def create_snapshot_policy(
     repeat_days: List[int],
     create_times: List[int],
     volume_ids: List[str],
+    user_id: Optional[str] = None,
+    user_name: Optional[str] = None,
+    project_id: Optional[str] = None,
+    project_name: Optional[str] = None,
 ) -> Any:
     now = datetime.now().isoformat(timespec="microseconds")
     db = DB.get()
@@ -198,6 +202,10 @@ async def create_snapshot_policy(
                 "name": name,
                 "repeat_days": repeat_days,
                 "create_times": create_times,
+                "user_id": user_id,
+                "user_name": user_name,
+                "project_id": project_id,
+                "project_name": project_name,
                 "created_at": now,
                 "updated_at": now,
             },

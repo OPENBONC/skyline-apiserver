@@ -178,6 +178,10 @@ async def create_snapshot_policy(
             repeat_days=payload.repeat_days,
             create_times=payload.create_times,
             volume_ids=payload.volume_ids,
+            user_id=profile.user.id,
+            user_name=profile.user.name,
+            project_id=profile.project.id,
+            project_name=profile.project.name,
         )
     except HTTPException as e:
         raise e

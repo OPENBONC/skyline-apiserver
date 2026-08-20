@@ -44,6 +44,10 @@ SnapshotPolicy = Table(
     Column("name", String(length=255), nullable=True),
     Column("repeat_days", JSON, nullable=False),
     Column("create_times", JSON, nullable=False),
+    Column("user_id", String(length=64), nullable=True),
+    Column("user_name", String(length=64), nullable=True),
+    Column("project_id", String(length=64), nullable=True),
+    Column("project_name", String(length=64), nullable=True),
     Column("created_at", String(length=32), nullable=False),
     Column("updated_at", String(length=32), nullable=False),
 )

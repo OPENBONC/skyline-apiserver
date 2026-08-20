@@ -69,6 +69,25 @@ def get_system_session() -> Session:
     return SESSION
 
 
+def get_system_session_by_project(project_id: str) -> Session:
+    """Session of the system user scoped into the given project."""
+    if not project_id:
+        return get_system_session()
+    auth = Password(
+        auth_url=CONF.openstack.keystone_url,
+        user_domain_name=CONF.openstack.system_user_domain,
+        username=CONF.openstack.system_user_name,
+        password=CONF.openstack.system_user_password,
+        project_id=project_id,
+        reauthenticate=True,
+    )
+    return Session(
+        auth=auth,
+        verify=CONF.default.cafile,
+        timeout=constants.DEFAULT_TIMEOUT,
+    )
+
+
 async def get_system_scope_access(keystone_token: str, region: str) -> AccessInfoV3:
     auth_url = await get_endpoint(region, "identity", get_system_session())
     scope_auth = Token(auth_url, keystone_token, system_scope="all")

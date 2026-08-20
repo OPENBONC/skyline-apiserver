@@ -86,7 +86,12 @@ async def _scheduler_tick() -> None:
 
 
 async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None:
+    policy = await db_api.get_snapshot_policy(policy_id)
+    if policy is None:
+        LOG.error(f"Snapshot policy {policy_id} no longer exists, skip.")
+        return
     session = utils.get_system_session()
+    project_session = utils.get_system_session_by_project(policy["project_id"])
     region = CONF.openstack.default_region
 
     snapshots = await cinder.list_volume_snapshots_by_session(
@@ -122,10 +127,11 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         SNAPSHOT_POLICY_METADATA_KEY: policy_id,
     }
     LOG.info(
-        f"Creating scheduled snapshot {name} for volume {volume_id} " f"by policy {policy_id}.",
+        f"Creating scheduled snapshot {name} for volume {volume_id} "
+        f"by policy {policy_id} in project {policy['project_id']}.",
     )
     await cinder.create_volume_snapshot(
-        session,
+        project_session,
         region,
         volume_id,
         name=name,
