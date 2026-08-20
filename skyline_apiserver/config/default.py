@@ -133,7 +133,7 @@ auto_snapshot_quota = Opt(
         "snapshot policies will be deleted automatically."
     ),
     schema=StrictInt,
-    default=100,
+    default=16,
 )
 
 ssl_enabled = Opt(

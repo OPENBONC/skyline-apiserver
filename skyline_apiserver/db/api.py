@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from datetime import datetime
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -187,7 +188,7 @@ async def create_snapshot_policy(
     create_times: List[int],
     volume_ids: List[str],
 ) -> Any:
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -223,7 +224,7 @@ async def update_snapshot_policy(
     create_times: List[int],
     volume_ids: List[str],
 ) -> Any:
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -570,7 +571,7 @@ async def create_quota_order(
     project_id: str,
     project_name: Optional[str],
 ) -> Any:
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         result = await db.execute(
@@ -594,7 +595,7 @@ async def create_quota_order(
 
 @check_db_connected
 async def update_quota_order_status(order_id: str, status: str) -> Any:
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         result = await db.execute(

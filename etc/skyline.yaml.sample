@@ -1,7 +1,7 @@
 default:
   access_token_expire: 3600
   access_token_renew: 1800
-  auto_snapshot_quota: 100
+  auto_snapshot_quota: 16
   cafile: ''
   cors_allow_origins: []
   database_url: sqlite:////tmp/skyline.db
