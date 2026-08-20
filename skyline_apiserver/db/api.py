@@ -29,6 +29,7 @@ from .models import RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume
 
 MAX_QUERY_LIMIT = 10000
 from .models import QuotaOrder, RevokedToken, Settings, SnapshotPolicy, SnapshotPolicyVolume
+from .models import ManagedCluster
 
 
 def check_db_connected(fn: Fn) -> Any:
@@ -610,6 +611,137 @@ async def update_quota_order_status(order_id: str, status: str) -> Any:
             update(QuotaOrder)
             .where(QuotaOrder.c.id == order_id)
             .values(status=status, ended_at=now),
+        )
+
+    return result
+
+
+@check_db_connected
+async def list_managed_clusters(
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> Any:
+    count_label = "count"
+    count_query = select([func.count(ManagedCluster.c.id).label(count_label)])
+    query = select([ManagedCluster]).order_by(ManagedCluster.c.created_at.desc())
+    if search:
+        count_query = count_query.where(
+            or_(
+                ManagedCluster.c.id == search,
+                ManagedCluster.c.name == search,
+                ManagedCluster.c.address == search,
+            )
+        )
+        query = query.where(
+            or_(
+                ManagedCluster.c.id == search,
+                ManagedCluster.c.name == search,
+                ManagedCluster.c.address == search,
+            )
+        )
+    if offset is not None:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+
+    db = DB.get()
+    async with db.transaction():
+        count = await db.fetch_val(count_query)
+        result = await db.fetch_all(query)
+
+    return result, count or 0
+
+
+@check_db_connected
+async def get_managed_cluster(cluster_id: str) -> Any:
+    query = select([ManagedCluster]).where(ManagedCluster.c.id == cluster_id)
+    db = DB.get()
+    async with db.transaction():
+        result = await db.fetch_one(query)
+
+    return result
+
+
+@check_db_connected
+async def create_managed_cluster(
+    cluster_id: str,
+    name: str,
+    address: str,
+    config_yaml: str,
+) -> Any:
+    now = datetime.now().isoformat(timespec="microseconds")
+    db = DB.get()
+    async with db.transaction():
+        result = await db.execute(
+            insert(ManagedCluster),
+            {
+                "id": cluster_id,
+                "name": name,
+                "address": address,
+                "config_yaml": config_yaml,
+                "status": constants.CLUSTER_STATUS_UNASSIGNED,
+                "user_id": None,
+                "user_name": None,
+                "project_id": None,
+                "project_name": None,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+    return result
+
+
+@check_db_connected
+async def update_managed_cluster_status(
+    cluster_id: str,
+    status: str,
+    user_id: Optional[str] = None,
+    user_name: Optional[str] = None,
+    project_id: Optional[str] = None,
+    project_name: Optional[str] = None,
+) -> Any:
+    now = datetime.now().isoformat(timespec="microseconds")
+    values: Dict[str, Any] = {
+        "status": status,
+        "updated_at": now,
+    }
+    if user_id is not None:
+        values.update(
+            {
+                "user_id": user_id,
+                "user_name": user_name,
+                "project_id": project_id,
+                "project_name": project_name,
+            }
+        )
+    elif status == constants.CLUSTER_STATUS_UNASSIGNED:
+        values.update(
+            {
+                "user_id": None,
+                "user_name": None,
+                "project_id": None,
+                "project_name": None,
+            }
+        )
+    db = DB.get()
+    async with db.transaction():
+        result = await db.execute(
+            update(ManagedCluster)
+            .where(ManagedCluster.c.id == cluster_id)
+            .values(values),
+        )
+
+    return result
+
+
+@check_db_connected
+async def delete_managed_cluster(cluster_id: str) -> Any:
+    db = DB.get()
+    async with db.transaction():
+        result = await db.execute(
+            delete(ManagedCluster).where(ManagedCluster.c.id == cluster_id),
         )
 
     return result

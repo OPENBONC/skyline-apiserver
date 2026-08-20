@@ -144,3 +144,19 @@ QuotaOrder = Table(
     Column("created_at", String(length=32), nullable=False),
     Column("ended_at", String(length=32), nullable=True),
 )
+
+ManagedCluster = Table(
+    "managed_cluster",
+    METADATA,
+    Column("id", String(length=36), primary_key=True, nullable=False),
+    Column("name", String(length=255), nullable=False),
+    Column("address", String(length=255), nullable=False),
+    Column("config_yaml", LONGTEXT, nullable=False),
+    Column("status", String(length=16), nullable=False),
+    Column("user_id", String(length=64), nullable=True, index=True),
+    Column("user_name", String(length=64), nullable=True),
+    Column("project_id", String(length=64), nullable=True),
+    Column("project_name", String(length=64), nullable=True),
+    Column("created_at", String(length=32), nullable=False),
+    Column("updated_at", String(length=32), nullable=False),
+)

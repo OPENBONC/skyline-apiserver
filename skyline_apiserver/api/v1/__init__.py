@@ -16,6 +16,7 @@ from fastapi import APIRouter
 
 from skyline_apiserver.api.v1 import (
     audit,
+    cluster,
     contrib,
     extension,
     login,
@@ -36,3 +37,4 @@ api_router.include_router(setting.router, tags=["Setting"])
 api_router.include_router(snapshot_policy.router, tags=["SnapshotPolicy"])
 api_router.include_router(audit.router, tags=["Audit Log"])
 api_router.include_router(quota_order.router, tags=["QuotaOrder"])
+api_router.include_router(cluster.router, tags=["Cluster"])
