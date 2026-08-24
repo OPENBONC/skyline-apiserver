@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List
 
 from skyline_apiserver.client import utils
@@ -47,7 +47,7 @@ async def run_snapshot_scheduler() -> None:
 
 
 async def _scheduler_tick() -> None:
-    now = datetime.now()
+    now = datetime.utcnow() - timedelta(hours=8)
     weekday = now.isoweekday()
     hour = now.hour
 

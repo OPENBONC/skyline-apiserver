@@ -29,11 +29,13 @@ from skyline_apiserver.utils.roles import assert_system_admin, is_system_admin
 
 router = APIRouter()
 
+ORDER_PATH_PREFIX = "/resource-orders"
+
 
 def _not_found() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="Quota order not found.",
+        detail="Order not found.",
     )
 
 
@@ -47,8 +49,10 @@ async def _assert_order_exist(order_id: str) -> Any:
 def _order_to_response(order: Any) -> schemas.QuotaOrderResponse:
     return schemas.QuotaOrderResponse(
         id=order["id"],
+        type=order["type"],
         title=order["title"],
         quota=order["quota"],
+        cluster_id=order["cluster_id"],
         status=order["status"],
         user_id=order["user_id"],
         user_name=order["user_name"],
@@ -60,8 +64,12 @@ def _order_to_response(order: Any) -> schemas.QuotaOrderResponse:
 
 
 @router.post(
-    "/quota-orders",
-    description="Create a quota application order",
+    ORDER_PATH_PREFIX,
+    description=(
+        "Create a resource order. The type can be 'quota' (apply for quota) "
+        "or 'cluster' (apply for a cluster). For cluster orders, the selected "
+        "cluster status is set to assigning after the order is created."
+    ),
     responses={
         200: {"model": schemas.QuotaOrderResponse},
         400: {"model": schemas.BadRequestMessage},
@@ -76,17 +84,59 @@ async def create_quota_order(
     payload: schemas.QuotaOrderCreate,
     profile: schemas.Profile = Depends(deps.get_profile_update_jwt),
 ) -> schemas.QuotaOrderResponse:
+    if payload.type == constants.RESOURCE_ORDER_TYPE_CLUSTER:
+        if not payload.cluster_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cluster_id is required for cluster orders.",
+            )
+        cluster = await db_api.get_managed_cluster(payload.cluster_id)
+        if cluster is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cluster not found.",
+            )
+        if cluster["status"] != constants.CLUSTER_STATUS_UNASSIGNED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The cluster is not available for application.",
+            )
+        pending, _ = await db_api.list_quota_orders(
+            user_id=profile.user.id,
+            order_type=constants.RESOURCE_ORDER_TYPE_CLUSTER,
+            statuses=[constants.QUOTA_ORDER_STATUS_PENDING],
+        )
+        if pending:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You can only apply for one cluster at a time.",
+            )
+    elif payload.quota is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="quota is required for quota orders.",
+        )
+
     order_id = str(uuid.uuid4())
     try:
         await db_api.create_quota_order(
             order_id=order_id,
+            order_type=payload.type,
             title=payload.title,
             quota=payload.quota,
+            cluster_id=payload.cluster_id,
             user_id=profile.user.id,
             user_name=profile.user.name,
             project_id=profile.project.id,
             project_name=profile.project.name,
         )
+        if payload.type == constants.RESOURCE_ORDER_TYPE_CLUSTER:
+            await db_api.update_managed_cluster_status(
+                cluster_id=payload.cluster_id,
+                status=constants.CLUSTER_STATUS_ASSIGNING,
+            )
+    except HTTPException as e:
+        raise e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -101,9 +151,9 @@ async def _get_order_response(order_id: str) -> schemas.QuotaOrderResponse:
 
 
 @router.get(
-    "/quota-orders",
+    ORDER_PATH_PREFIX,
     description=(
-        "List quota orders. Ordinary users only see the orders they created, "
+        "List resource orders. Ordinary users only see the orders they created, "
         "while administrators see all the orders."
     ),
     responses={
@@ -120,7 +170,11 @@ async def _get_order_response(order_id: str) -> schemas.QuotaOrderResponse:
 async def list_quota_orders(
     search: str = Query(
         None,
-        description="Search the quota order by the exact order ID.",
+        description="Search the order by the exact order ID.",
+    ),
+    type: str = Query(
+        None,
+        description="Filter by order type: quota or cluster.",
     ),
     status_list: List[str] = Query(
         [],
@@ -142,10 +196,16 @@ async def list_quota_orders(
     profile: schemas.Profile = Depends(deps.get_profile_update_jwt),
 ) -> schemas.QuotaOrderListResponse:
     statuses = _validate_statuses(status_list)
+    if type and type not in constants.RESOURCE_ORDER_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid order type: %s" % type,
+        )
     try:
         user_id = None if is_system_admin(profile) else profile.user.id
         orders, count = await db_api.list_quota_orders(
             user_id=user_id,
+            order_type=type,
             statuses=statuses,
             search=search,
             limit=limit,
@@ -174,13 +234,13 @@ def _validate_statuses(status_list: List[str]) -> Optional[List[str]]:
         return None
     invalid = set(status_list) - constants.QUOTA_ORDER_STATUSES
     if invalid:
-        raise ValueError("Invalid quota order status: %s" % ", ".join(sorted(invalid)))
+        raise ValueError("Invalid order status: %s" % ", ".join(sorted(invalid)))
     return list(status_list)
 
 
 @router.get(
-    "/quota-orders/{order_id}",
-    description="Get a quota order detail",
+    ORDER_PATH_PREFIX + "/{order_id}",
+    description="Get a resource order detail",
     responses={
         200: {"model": schemas.QuotaOrderResponse},
         401: {"model": schemas.UnauthorizedMessage},
@@ -203,10 +263,10 @@ async def get_quota_order(
 
 
 @router.post(
-    "/quota-orders/{order_id}/withdraw",
+    ORDER_PATH_PREFIX + "/{order_id}/withdraw",
     description=(
-        "Withdraw a pending quota order. Only the creator can withdraw "
-        "his/her own order."
+        "Withdraw a pending order. Only the creator can withdraw his/her own order. "
+        "For cluster orders, the cluster status is set back to unassigned."
     ),
     responses={
         200: {"model": schemas.QuotaOrderResponse},
@@ -230,13 +290,18 @@ async def withdraw_quota_order(
     if order["status"] != constants.QUOTA_ORDER_STATUS_PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only the pending quota order can be withdrawn.",
+            detail="Only the pending order can be withdrawn.",
         )
     try:
         await db_api.update_quota_order_status(
             order_id=order_id,
             status=constants.QUOTA_ORDER_STATUS_WITHDRAWN,
         )
+        if order["type"] == constants.RESOURCE_ORDER_TYPE_CLUSTER:
+            await db_api.update_managed_cluster_status(
+                cluster_id=order["cluster_id"],
+                status=constants.CLUSTER_STATUS_UNASSIGNED,
+            )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -246,10 +311,11 @@ async def withdraw_quota_order(
 
 
 @router.post(
-    "/quota-orders/{order_id}/approve",
+    ORDER_PATH_PREFIX + "/{order_id}/approve",
     description=(
-        "Approve a pending quota order and expand the project quota "
-        "by calling the OpenStack APIs."
+        "Approve a pending order. Quota orders expand the project quota by calling "
+        "the OpenStack APIs. Cluster orders mark the cluster as assigned to the "
+        "applicant user and project."
     ),
     responses={
         200: {"model": schemas.QuotaOrderResponse},
@@ -272,26 +338,34 @@ async def approve_quota_order(
         regex=constants.INBOUND_HEADER_REGEX,
     ),
 ) -> schemas.QuotaOrderResponse:
-    assert_system_admin(
-        profile=profile, exception="Not allowed to approve quota orders."
-    )
+    assert_system_admin(profile=profile, exception="Not allowed to approve orders.")
     order = await _assert_order_exist(order_id)
     if order["status"] != constants.QUOTA_ORDER_STATUS_PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only the pending quota order can be approved.",
+            detail="Only the pending order can be approved.",
         )
 
-    region = profile.region
-    session = await utils.generate_session(profile)
     try:
-        await quota_client.update_quotas(
-            session=session,
-            region=region,
-            project_id=order["project_id"],
-            quota=order["quota"],
-            global_request_id=x_openstack_request_id,
-        )
+        if order["type"] == constants.RESOURCE_ORDER_TYPE_CLUSTER:
+            await db_api.update_managed_cluster_status(
+                cluster_id=order["cluster_id"],
+                status=constants.CLUSTER_STATUS_ASSIGNED,
+                user_id=order["user_id"],
+                user_name=order["user_name"],
+                project_id=order["project_id"],
+                project_name=order["project_name"],
+            )
+        else:
+            region = profile.region
+            session = await utils.generate_session(profile)
+            await quota_client.update_quotas(
+                session=session,
+                region=region,
+                project_id=order["project_id"],
+                quota=order["quota"],
+                global_request_id=x_openstack_request_id,
+            )
         await db_api.update_quota_order_status(
             order_id=order_id,
             status=constants.QUOTA_ORDER_STATUS_APPROVED,
@@ -305,8 +379,11 @@ async def approve_quota_order(
 
 
 @router.post(
-    "/quota-orders/{order_id}/reject",
-    description="Reject a pending quota order",
+    ORDER_PATH_PREFIX + "/{order_id}/reject",
+    description=(
+        "Reject a pending order. For cluster orders, the cluster status is set "
+        "back to unassigned."
+    ),
     responses={
         200: {"model": schemas.QuotaOrderResponse},
         400: {"model": schemas.BadRequestMessage},
@@ -323,20 +400,23 @@ async def reject_quota_order(
     order_id: str,
     profile: schemas.Profile = Depends(deps.get_profile_update_jwt),
 ) -> schemas.QuotaOrderResponse:
-    assert_system_admin(
-        profile=profile, exception="Not allowed to reject quota orders."
-    )
+    assert_system_admin(profile=profile, exception="Not allowed to reject orders.")
     order = await _assert_order_exist(order_id)
     if order["status"] != constants.QUOTA_ORDER_STATUS_PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only the pending quota order can be rejected.",
+            detail="Only the pending order can be rejected.",
         )
     try:
         await db_api.update_quota_order_status(
             order_id=order_id,
             status=constants.QUOTA_ORDER_STATUS_REJECTED,
         )
+        if order["type"] == constants.RESOURCE_ORDER_TYPE_CLUSTER:
+            await db_api.update_managed_cluster_status(
+                cluster_id=order["cluster_id"],
+                status=constants.CLUSTER_STATUS_UNASSIGNED,
+            )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

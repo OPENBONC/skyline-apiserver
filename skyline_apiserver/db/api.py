@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -193,7 +193,7 @@ async def create_snapshot_policy(
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
 ) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = (datetime.utcnow() - timedelta(hours=8)).isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -233,7 +233,7 @@ async def update_snapshot_policy(
     create_times: List[int],
     volume_ids: List[str],
 ) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now = (datetime.utcnow() - timedelta(hours=8)).isoformat(timespec="microseconds")
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -530,6 +530,7 @@ async def list_audit_logs(
 @check_db_connected
 async def list_quota_orders(
     user_id: Optional[str] = None,
+    order_type: Optional[str] = None,
     statuses: Optional[List[str]] = None,
     search: Optional[str] = None,
     limit: Optional[int] = None,
@@ -541,6 +542,9 @@ async def list_quota_orders(
     if user_id:
         count_query = count_query.where(QuotaOrder.c.user_id == user_id)
         query = query.where(QuotaOrder.c.user_id == user_id)
+    if order_type:
+        count_query = count_query.where(QuotaOrder.c.type == order_type)
+        query = query.where(QuotaOrder.c.type == order_type)
     if statuses:
         count_query = count_query.where(QuotaOrder.c.status.in_(statuses))
         query = query.where(QuotaOrder.c.status.in_(statuses))
@@ -573,28 +577,32 @@ async def get_quota_order(order_id: str) -> Any:
 @check_db_connected
 async def create_quota_order(
     order_id: str,
+    order_type: str,
     title: str,
     quota: Any,
+    cluster_id: Optional[str],
     user_id: str,
     user_name: str,
     project_id: str,
     project_name: Optional[str],
 ) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     db = DB.get()
     async with db.transaction():
         result = await db.execute(
             insert(QuotaOrder),
             {
                 "id": order_id,
+                "type": order_type,
                 "title": title,
                 "quota": quota,
+                "cluster_id": cluster_id,
                 "status": constants.QUOTA_ORDER_STATUS_PENDING,
                 "user_id": user_id,
                 "user_name": user_name,
                 "project_id": project_id,
                 "project_name": project_name,
-                "created_at": now,
+                "created_at": now_ms,
                 "ended_at": None,
             },
         )
@@ -604,13 +612,13 @@ async def create_quota_order(
 
 @check_db_connected
 async def update_quota_order_status(order_id: str, status: str) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     db = DB.get()
     async with db.transaction():
         result = await db.execute(
             update(QuotaOrder)
             .where(QuotaOrder.c.id == order_id)
-            .values(status=status, ended_at=now),
+            .values(status=status, ended_at=now_ms),
         )
 
     return result
@@ -669,8 +677,9 @@ async def create_managed_cluster(
     name: str,
     address: str,
     config_yaml: str,
+    dashboard_url: Optional[str] = None,
 ) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     db = DB.get()
     async with db.transaction():
         result = await db.execute(
@@ -680,13 +689,14 @@ async def create_managed_cluster(
                 "name": name,
                 "address": address,
                 "config_yaml": config_yaml,
+                "dashboard_url": dashboard_url,
                 "status": constants.CLUSTER_STATUS_UNASSIGNED,
                 "user_id": None,
                 "user_name": None,
                 "project_id": None,
                 "project_name": None,
-                "created_at": now,
-                "updated_at": now,
+                "created_at": now_ms,
+                "updated_at": now_ms,
             },
         )
 
@@ -702,10 +712,10 @@ async def update_managed_cluster_status(
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
 ) -> Any:
-    now = datetime.now().isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     values: Dict[str, Any] = {
         "status": status,
-        "updated_at": now,
+        "updated_at": now_ms,
     }
     if user_id is not None:
         values.update(

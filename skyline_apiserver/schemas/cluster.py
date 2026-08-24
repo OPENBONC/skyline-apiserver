@@ -27,6 +27,9 @@ class ClusterCreate(BaseModel):
         ..., description="Cluster API server address, e.g. https://1.2.3.4:6443"
     )
     config_yaml: str = Field(..., description="Kubernetes config yaml content")
+    dashboard_url: Optional[str] = Field(
+        None, description="Cluster dashboard URL, e.g. https://dashboard.example.com"
+    )
 
     @validator("name")
     def check_name(cls, v: str) -> str:
@@ -52,6 +55,17 @@ class ClusterCreate(BaseModel):
             raise ValueError("Config yaml must not be empty.")
         return v
 
+    @validator("dashboard_url")
+    def check_dashboard_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip().rstrip("/")
+        if not v:
+            return None
+        if len(v) > 255:
+            raise ValueError("Dashboard URL must be no more than 255 characters.")
+        return v
+
 
 class ClusterStatusUpdate(BaseModel):
     status: str = Field(..., description="Target cluster status")
@@ -70,6 +84,7 @@ class ClusterResponse(BaseModel):
     id: str = Field(..., description="Cluster ID")
     name: str = Field(..., description="Cluster name")
     address: str = Field(..., description="Cluster API server address")
+    dashboard_url: Optional[str] = Field(None, description="Cluster dashboard URL")
     status: str = Field(..., description="Cluster status")
     user_id: Optional[str] = Field(
         None, description="The ID of the user who applied the cluster"
@@ -83,8 +98,8 @@ class ClusterResponse(BaseModel):
     project_name: Optional[str] = Field(
         None, description="The project name of the applicant"
     )
-    created_at: str = Field(..., description="Cluster created at time")
-    updated_at: str = Field(..., description="Cluster updated at time")
+    created_at: int = Field(..., description="Cluster created at timestamp (ms)")
+    updated_at: int = Field(..., description="Cluster updated at timestamp (ms)")
 
 
 class ClusterListResponse(BaseModel):

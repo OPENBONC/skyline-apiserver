@@ -51,6 +51,7 @@ def _cluster_to_response(cluster: Any) -> schemas.ClusterResponse:
         id=cluster["id"],
         name=cluster["name"],
         address=cluster["address"],
+        dashboard_url=cluster["dashboard_url"],
         status=cluster["status"],
         user_id=cluster["user_id"],
         user_name=cluster["user_name"],
@@ -101,6 +102,7 @@ async def create_cluster(
             name=payload.name,
             address=payload.address,
             config_yaml=payload.config_yaml,
+            dashboard_url=payload.dashboard_url,
         )
     except Exception as e:
         raise HTTPException(
