@@ -118,6 +118,7 @@ class SnapshotPolicyResponse(BaseModel):
     name: Optional[str] = Field(None, description="Scheduled snapshot policy name")
     repeat_days: List[int] = Field(..., description="Repeat days, 1-7")
     create_times: List[int] = Field(..., description="Create times, 0-23")
+    trust_id: Optional[str] = Field(None, description="Trust ID for snapshot creation")
     volume_count: int = Field(0, description="The number of volumes bound to the policy")
     created_at: int = Field(..., description="Created at timestamp (ms)")
     updated_at: Optional[int] = Field(None, description="Updated at timestamp (ms)")

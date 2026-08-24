@@ -191,6 +191,7 @@ async def create_snapshot_policy(
     user_name: Optional[str] = None,
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
+    trust_id: Optional[str] = None,
 ) -> Any:
     now_ms = int(time.time() * 1000)
     db = DB.get()
@@ -202,6 +203,7 @@ async def create_snapshot_policy(
                 "name": name,
                 "repeat_days": repeat_days,
                 "create_times": create_times,
+                "trust_id": trust_id,
                 "user_id": user_id,
                 "user_name": user_name,
                 "project_id": project_id,

@@ -24,13 +24,33 @@ from skyline_apiserver import schemas
 from skyline_apiserver.api import deps
 from skyline_apiserver.client import utils
 from skyline_apiserver.client.openstack import cinder
+from skyline_apiserver.config import CONF
 from skyline_apiserver.db import api as db_api
+from skyline_apiserver.log import LOG
 from skyline_apiserver.types import constants
 from skyline_apiserver.utils.roles import assert_system_admin, assert_system_admin_or_reader
 
 router = APIRouter()
 
 STEP = constants.ID_UUID_RANGE_STEP
+
+
+def _create_trust(trustor_user_id: str, trustee_user_id: str) -> str:
+    """
+    创建 OpenStack Trust
+    :param trustor_user_id: 委托人用户ID (策略创建用户)
+    :param trustee_user_id: 受托人用户ID (系统用户)
+    :return: trust_id
+    """
+    system_session = utils.get_system_session()
+    ks = __import__("keystoneclient").client.Client(session=system_session)
+
+    trust = ks.trusts.create(
+        trustor_user=trustor_user_id,
+        trustee_user=trustee_user_id,
+    )
+    LOG.info(f"Created Trust: {trust.id} (trustor={trustor_user_id}, trustee={trustee_user_id})")
+    return trust.id
 
 
 def _not_found(exception: str = "Snapshot policy not found.") -> HTTPException:
@@ -133,6 +153,7 @@ async def list_snapshot_policies(
             name=policy["name"],
             repeat_days=policy["repeat_days"],
             create_times=policy["create_times"],
+            trust_id=policy.get("trust_id"),
             volume_count=policy["volume_count"],
             created_at=policy["created_at"],
             updated_at=policy["updated_at"],
@@ -170,6 +191,17 @@ async def create_snapshot_policy(
         exception="Not allowed to create scheduled snapshot policies.",
     )
     policy_id = str(uuid.uuid4())
+
+    # 创建 Trust：委托人=策略创建用户，受托人=系统用户
+    trust_id = None
+    try:
+        trust_id = _create_trust(
+            trustor_user_id=profile.user.id,
+            trustee_user_id=CONF.openstack.system_user_id,
+        )
+    except Exception as e:
+        LOG.warning(f"Failed to create trust for policy {policy_id}: {e}")
+
     try:
         await _assert_volumes_available(payload.volume_ids, policy_id)
         await db_api.create_snapshot_policy(
@@ -182,6 +214,7 @@ async def create_snapshot_policy(
             user_name=profile.user.name,
             project_id=profile.project.id,
             project_name=profile.project.name,
+            trust_id=trust_id,
         )
     except HTTPException as e:
         raise e
@@ -302,6 +335,7 @@ async def _get_policy_response(
         name=policy["name"],
         repeat_days=policy["repeat_days"],
         create_times=policy["create_times"],
+        trust_id=policy.get("trust_id"),
         volume_count=0,
         created_at=policy["created_at"],
         updated_at=policy["updated_at"],

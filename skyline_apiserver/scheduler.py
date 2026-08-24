@@ -90,9 +90,18 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
     if policy is None:
         LOG.error(f"Snapshot policy {policy_id} no longer exists, skip.")
         return
-    session = utils.get_system_session()
-    project_session = utils.get_system_session_by_project(policy["project_id"])
     region = CONF.openstack.default_region
+
+    # 使用 trust_id 获取委托 token
+    trust_id = policy.get("trust_id")
+    if not trust_id:
+        LOG.error(f"Snapshot policy {policy_id} has no trust_id, skip.")
+        return
+
+    session = _get_trust_session(trust_id)
+    if session is None:
+        LOG.error(f"Failed to get trust session for policy {policy_id}, skip.")
+        return
 
     snapshots = await cinder.list_volume_snapshots_by_session(
         session=session,
@@ -111,8 +120,6 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         )
         return
 
-    # If the previous snapshot took longer than the interval (one hour at least),
-    # skip this time point automatically.
     if _is_snapshot_still_creating(policy_snapshots):
         LOG.info(
             f"Snapshot for volume {volume_id} is still being created, skip this time point.",
@@ -131,12 +138,33 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         f"by policy {policy_id} in project {policy['project_id']}.",
     )
     await cinder.create_volume_snapshot(
-        project_session,
+        session,
         region,
         volume_id,
         name=name,
         metadata=metadata,
     )
+
+
+def _get_trust_session(trust_id: str):
+    """使用 trust_id 获取委托 token 的 Session"""
+    try:
+        from keystoneauth1 import identity as kia
+        from keystoneauth1 import session as ksession
+
+        auth = kia.Password(
+            auth_url=CONF.openstack.keystone_url,
+            username=CONF.openstack.system_user_name,
+            password=CONF.openstack.system_user_password,
+            user_domain_name=CONF.openstack.system_user_domain,
+            project_name=CONF.openstack.system_project,
+            project_domain_name=CONF.openstack.system_project_domain,
+            trust_id=trust_id,
+        )
+        return ksession.Session(auth=auth, verify=CONF.default.cafile)
+    except Exception as e:
+        LOG.error(f"Trust session creation failed: {type(e).__name__}: {e}")
+        return None
 
 
 async def _enforce_quota(

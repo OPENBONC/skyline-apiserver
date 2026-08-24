@@ -52,6 +52,13 @@ system_user_domain = Opt(
     default="Default",
 )
 
+system_user_id = Opt(
+    name="system_user_id",
+    description="Skyline system user's id",
+    schema=StrictStr,
+    default="Default",
+)
+
 system_user_name = Opt(
     name="system_user_name",
     description="Skyline system username",
@@ -202,6 +209,7 @@ ALL_OPTS = (
     system_project_domain,
     system_project,
     system_user_domain,
+    system_user_id,
     system_user_name,
     system_user_password,
     default_region,
