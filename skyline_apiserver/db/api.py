@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -193,7 +192,7 @@ async def create_snapshot_policy(
     project_id: Optional[str] = None,
     project_name: Optional[str] = None,
 ) -> Any:
-    now = (datetime.utcnow() - timedelta(hours=8)).isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -207,8 +206,8 @@ async def create_snapshot_policy(
                 "user_name": user_name,
                 "project_id": project_id,
                 "project_name": project_name,
-                "created_at": now,
-                "updated_at": now,
+                "created_at": now_ms,
+                "updated_at": now_ms,
             },
         )
         for volume_id in volume_ids:
@@ -218,7 +217,7 @@ async def create_snapshot_policy(
                     "id": str(uuid.uuid4()),
                     "policy_id": policy_id,
                     "volume_id": volume_id,
-                    "created_at": now,
+                    "created_at": now_ms,
                 },
             )
 
@@ -233,7 +232,7 @@ async def update_snapshot_policy(
     create_times: List[int],
     volume_ids: List[str],
 ) -> Any:
-    now = (datetime.utcnow() - timedelta(hours=8)).isoformat(timespec="microseconds")
+    now_ms = int(time.time() * 1000)
     db = DB.get()
     async with db.transaction():
         await db.execute(
@@ -243,7 +242,7 @@ async def update_snapshot_policy(
                 name=name,
                 repeat_days=repeat_days,
                 create_times=create_times,
-                updated_at=now,
+                updated_at=now_ms,
             ),
         )
         await db.execute(
@@ -258,7 +257,7 @@ async def update_snapshot_policy(
                     "id": str(uuid.uuid4()),
                     "policy_id": policy_id,
                     "volume_id": volume_id,
-                    "created_at": now,
+                    "created_at": now_ms,
                 },
             )
 
