@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from skyline_apiserver.client import utils
@@ -189,4 +189,4 @@ def _to_local_dt(value: str) -> datetime:
     dt = datetime.fromisoformat(value)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone()
+    return dt.astimezone().replace(tzinfo=None)
