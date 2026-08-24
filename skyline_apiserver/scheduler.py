@@ -47,7 +47,7 @@ async def run_snapshot_scheduler() -> None:
 
 
 async def _scheduler_tick() -> None:
-    now = datetime.utcnow() - timedelta(hours=8)
+    now = datetime.now()
     weekday = now.isoweekday()
     hour = now.hour
 
