@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+from fastapi import HTTPException
+
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
@@ -70,6 +72,7 @@ async def _scheduler_tick() -> None:
             policies[policy_id]["volumes"].append(row["volume_id"])
 
     for policy_id, policy in policies.items():
+
         try:
             if weekday not in policy["repeat_days"] or hour not in policy["create_times"]:
                 continue
@@ -86,6 +89,7 @@ async def _scheduler_tick() -> None:
 
 
 async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None:
+
     policy = await db_api.get_snapshot_policy(policy_id)
     if policy is None:
         LOG.error(f"Snapshot policy {policy_id} no longer exists, skip.")
@@ -93,18 +97,19 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
     region = CONF.openstack.default_region
 
     # 使用 trust_id 获取委托 token
-    trust_id = policy.get("trust_id")
+    trust_id = policy["trust_id"]
     if not trust_id:
         LOG.error(f"Snapshot policy {policy_id} has no trust_id, skip.")
         return
 
     session = _get_trust_session(trust_id)
+    systerm_session = utils.get_system_session()
     if session is None:
         LOG.error(f"Failed to get trust session for policy {policy_id}, skip.")
         return
 
     snapshots = await cinder.list_volume_snapshots_by_session(
-        session=session,
+        session=systerm_session,
         region=region,
         search_opts={"volume_id": volume_id, "all_tenants": True},
     )
@@ -137,13 +142,24 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         f"Creating scheduled snapshot {name} for volume {volume_id} "
         f"by policy {policy_id} in project {policy['project_id']}.",
     )
-    await cinder.create_volume_snapshot(
-        session,
-        region,
-        volume_id,
-        name=name,
-        metadata=metadata,
-    )
+    try:
+        await cinder.create_volume_snapshot(
+            session,
+            region,
+            volume_id,
+            name=name,
+            metadata=metadata,
+        )
+    except HTTPException as he:
+        LOG.error(
+            f"Create snapshot HTTP error for volume {volume_id} "
+            f"policy {policy_id}: status={he.status_code}, detail={he.detail}"
+        )
+    except Exception as e:
+        LOG.error(
+            f"Failed to create scheduled snapshot for volume {volume_id} "
+            f"with policy {policy_id}: {type(e).__name__}: {e}"
+        )
 
 
 def _get_trust_session(trust_id: str):
@@ -157,8 +173,6 @@ def _get_trust_session(trust_id: str):
             username=CONF.openstack.system_user_name,
             password=CONF.openstack.system_user_password,
             user_domain_name=CONF.openstack.system_user_domain,
-            project_name=CONF.openstack.system_project,
-            project_domain_name=CONF.openstack.system_project_domain,
             trust_id=trust_id,
         )
         return ksession.Session(auth=auth, verify=CONF.default.cafile)

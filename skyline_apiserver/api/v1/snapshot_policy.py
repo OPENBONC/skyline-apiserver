@@ -35,22 +35,41 @@ router = APIRouter()
 STEP = constants.ID_UUID_RANGE_STEP
 
 
-def _create_trust(trustor_user_id: str, trustee_user_id: str) -> str:
+def _create_trust(trustor_user_id: str, trustee_user_id: str, trustor_project_id: str, user_session=None) -> str:
     """
     创建 OpenStack Trust
     :param trustor_user_id: 委托人用户ID (策略创建用户)
     :param trustee_user_id: 受托人用户ID (系统用户)
+    :param trustor_project_id: 委托人项目ID (要委托的项目)
+    :param user_session: 委托人的 session (用于创建 trust)
     :return: trust_id
     """
-    system_session = utils.get_system_session()
-    ks = __import__("keystoneclient").client.Client(session=system_session)
+    session = user_session or utils.get_system_session()
 
-    trust = ks.trusts.create(
-        trustor_user=trustor_user_id,
-        trustee_user=trustee_user_id,
-    )
-    LOG.info(f"Created Trust: {trust.id} (trustor={trustor_user_id}, trustee={trustee_user_id})")
-    return trust.id
+    # 获取 trustor 用户在项目上的角色
+    ks = __import__("keystoneclient").client.Client(session=session)
+    role_list = ks.roles.list(user=trustor_user_id, project=trustor_project_id)
+    roles_data = [{"name": r.name} for r in role_list]
+    LOG.info(f"Trust roles for user {trustor_user_id} on project {trustor_project_id}: {[r['name'] for r in roles_data]}")
+
+    # 使用 REST API 创建 trust，避免 keystoneclient 内部 roles 参数冲突
+    body = {
+        "trust": {
+            "trustor_user_id": trustor_user_id,
+            "trustee_user_id": trustee_user_id,
+            "project_id": trustor_project_id,
+            "impersonation": True,
+            "allow_redelegation": False,
+            "roles": roles_data,
+        }
+    }
+
+    url = f"{CONF.openstack.keystone_url}/OS-TRUST/trusts"
+    resp = session.post(url, json=body)
+    trust_data = resp.json()
+    trust_id = trust_data["trust"]["id"]
+    LOG.info(f"Created Trust: {trust_id} (trustor={trustor_user_id}, trustee={trustee_user_id}, project={trustor_project_id})")
+    return trust_id
 
 
 def _not_found(exception: str = "Snapshot policy not found.") -> HTTPException:
@@ -79,16 +98,16 @@ def _volume_to_dict(volume: Any) -> Dict[str, Any]:
     }
 
 
-async def _list_all_volumes(
+async def _list_user_volumes(
     profile: schemas.Profile,
-    system_session: Any,
+    user_session: Any,
     global_request_id: str,
 ) -> List[Any]:
     volumes, _ = await cinder.list_volumes(
         profile=profile,
-        session=system_session,
+        session=user_session,
         global_request_id=global_request_id,
-        search_opts={"all_tenants": True, "with_count": True},
+        search_opts={"with_count": True},
     )
     return list(volumes)
 
@@ -153,7 +172,7 @@ async def list_snapshot_policies(
             name=policy["name"],
             repeat_days=policy["repeat_days"],
             create_times=policy["create_times"],
-            trust_id=policy.get("trust_id"),
+            trust_id=policy["trust_id"],
             volume_count=policy["volume_count"],
             created_at=policy["created_at"],
             updated_at=policy["updated_at"],
@@ -195,9 +214,12 @@ async def create_snapshot_policy(
     # 创建 Trust：委托人=策略创建用户，受托人=系统用户
     trust_id = None
     try:
+        user_session = await utils.generate_session(profile)
         trust_id = _create_trust(
             trustor_user_id=profile.user.id,
             trustee_user_id=CONF.openstack.system_user_id,
+            trustor_project_id=profile.project.id,
+            user_session=user_session,
         )
     except Exception as e:
         LOG.warning(f"Failed to create trust for policy {policy_id}: {e}")
@@ -263,9 +285,10 @@ async def list_available_volumes(
         exception="Not allowed to get available volumes.",
     )
     try:
-        system_session = utils.get_system_session()
-        volumes = await _list_all_volumes(
-            profile, system_session, x_openstack_request_id
+        # project_session = utils.get_system_session_by_project(profile.project.id)
+        user_session = await utils.generate_session(profile)
+        volumes = await _list_user_volumes(
+            profile, user_session, x_openstack_request_id
         )
         bound_rows = await db_api.list_policy_volumes()
     except Exception as e:
@@ -335,7 +358,7 @@ async def _get_policy_response(
         name=policy["name"],
         repeat_days=policy["repeat_days"],
         create_times=policy["create_times"],
-        trust_id=policy.get("trust_id"),
+        trust_id=policy["trust_id"],
         volume_count=0,
         created_at=policy["created_at"],
         updated_at=policy["updated_at"],
