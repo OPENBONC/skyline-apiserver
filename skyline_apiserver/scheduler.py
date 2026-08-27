@@ -158,6 +158,7 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime, hour_ke
             volume_id,
             name=name,
             metadata=metadata,
+            force=True,
         )
     except HTTPException as he:
         LOG.error(

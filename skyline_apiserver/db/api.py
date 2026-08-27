@@ -309,13 +309,11 @@ async def check_and_update_scheduled(policy_id: str, volume_id: str, hour_key: s
     now_ms = int(time.time() * 1000)
 
     # 查询当前记录
-    result = await db.execute(
-        select(SnapshotPolicyVolume).where(
-            SnapshotPolicyVolume.c.policy_id == policy_id,
-            SnapshotPolicyVolume.c.volume_id == volume_id,
-        )
+    query = select(SnapshotPolicyVolume).where(
+        SnapshotPolicyVolume.c.policy_id == policy_id,
+        SnapshotPolicyVolume.c.volume_id == volume_id,
     )
-    row = result.first()
+    row = await db.fetch_one(query)
     if row is None:
         return False
 
