@@ -30,6 +30,9 @@ AUTO_SNAPSHOT_METADATA_KEY = "skyline_auto_snapshot"
 SNAPSHOT_POLICY_METADATA_KEY = "skyline_snapshot_policy_id"
 AUTO_SNAPSHOT_NAME_PREFIX = "auto-snapshot"
 
+# 防止重复创建快照的锁：key = "policy_id:volume_id:minute_key"
+_snapshot_creation_locks: set = set()
+
 
 async def run_snapshot_scheduler() -> None:
     """Periodically scan snapshot policies and create snapshots if needed."""
@@ -77,6 +80,10 @@ async def _scheduler_tick() -> None:
             if weekday not in policy["repeat_days"] or hour not in policy["create_times"]:
                 continue
             for volume_id in policy["volumes"]:
+                lock_key = f"{policy_id}:{volume_id}:{now.strftime('%Y%m%d%H')}"
+                if lock_key in _snapshot_creation_locks:
+                    LOG.debug(f"Snapshot for {volume_id} policy {policy_id} already created this hour, skip.")
+                    continue
                 try:
                     await _process_volume(policy_id, volume_id, now)
                 except Exception as e:
@@ -131,6 +138,10 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         )
         return
 
+    # 获取锁，防止并发重复创建
+    lock_key = f"{policy_id}:{volume_id}:{now.strftime('%Y%m%d%H')}"
+    _snapshot_creation_locks.add(lock_key)
+
     await _enforce_quota(session, region, volume_id, policy_snapshots)
 
     name = _generate_snapshot_name(volume_id, now)
@@ -155,11 +166,13 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
             f"Create snapshot HTTP error for volume {volume_id} "
             f"policy {policy_id}: status={he.status_code}, detail={he.detail}"
         )
+        _snapshot_creation_locks.discard(lock_key)
     except Exception as e:
         LOG.error(
             f"Failed to create scheduled snapshot for volume {volume_id} "
             f"with policy {policy_id}: {type(e).__name__}: {e}"
         )
+        _snapshot_creation_locks.discard(lock_key)
 
 
 def _get_trust_session(trust_id: str):
@@ -219,8 +232,7 @@ def _created_in_current_slot(policy_snapshots: List[Any], now: datetime) -> bool
 def _is_snapshot_still_creating(policy_snapshots: List[Any]) -> bool:
     if not policy_snapshots:
         return False
-    ordered = sorted(policy_snapshots, key=lambda s: _to_local_dt(s.created_at))
-    return ordered[-1].status == "creating"
+    return any(s.status == "creating" for s in policy_snapshots)
 
 
 def _generate_snapshot_name(volume_id: str, now: datetime) -> str:
