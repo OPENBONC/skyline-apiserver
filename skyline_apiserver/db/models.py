@@ -59,6 +59,7 @@ SnapshotPolicyVolume = Table(
     Column("id", String(length=36), primary_key=True, nullable=False),
     Column("policy_id", String(length=36), nullable=False, index=True),
     Column("volume_id", String(length=36), nullable=False, index=True, unique=True),
+    Column("last_scheduled_at", BigInteger, nullable=True),
     Column("created_at", String(length=32), nullable=False),
 )
 

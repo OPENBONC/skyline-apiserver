@@ -30,9 +30,6 @@ AUTO_SNAPSHOT_METADATA_KEY = "skyline_auto_snapshot"
 SNAPSHOT_POLICY_METADATA_KEY = "skyline_snapshot_policy_id"
 AUTO_SNAPSHOT_NAME_PREFIX = "auto-snapshot"
 
-# 防止重复创建快照的锁：key = "policy_id:volume_id:minute_key"
-_snapshot_creation_locks: set = set()
-
 
 async def run_snapshot_scheduler() -> None:
     """Periodically scan snapshot policies and create snapshots if needed."""
@@ -55,6 +52,7 @@ async def _scheduler_tick() -> None:
     now = datetime.now()
     weekday = now.isoweekday()
     hour = now.hour
+    hour_key = now.strftime("%Y%m%d%H")
 
     policy_rows, _ = await db_api.list_snapshot_policies()
     if not policy_rows:
@@ -80,12 +78,8 @@ async def _scheduler_tick() -> None:
             if weekday not in policy["repeat_days"] or hour not in policy["create_times"]:
                 continue
             for volume_id in policy["volumes"]:
-                lock_key = f"{policy_id}:{volume_id}:{now.strftime('%Y%m%d%H')}"
-                if lock_key in _snapshot_creation_locks:
-                    LOG.debug(f"Snapshot for {volume_id} policy {policy_id} already created this hour, skip.")
-                    continue
                 try:
-                    await _process_volume(policy_id, volume_id, now)
+                    await _process_volume(policy_id, volume_id, now, hour_key)
                 except Exception as e:
                     LOG.error(
                         f"Failed to create scheduled snapshot for volume {volume_id} "
@@ -95,7 +89,15 @@ async def _scheduler_tick() -> None:
             LOG.error(f"Failed to process snapshot policy {policy_id}: {e}")
 
 
-async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None:
+async def _process_volume(policy_id: str, volume_id: str, now: datetime, hour_key: str) -> None:
+
+    # 数据库层面防重入：检查并更新 last_scheduled_at
+    can_schedule = await db_api.check_and_update_scheduled(policy_id, volume_id, hour_key)
+    if not can_schedule:
+        LOG.debug(
+            f"Snapshot for volume {volume_id} policy {policy_id} already scheduled in {hour_key}, skip.",
+        )
+        return
 
     policy = await db_api.get_snapshot_policy(policy_id)
     if policy is None:
@@ -138,10 +140,6 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
         )
         return
 
-    # 获取锁，防止并发重复创建
-    lock_key = f"{policy_id}:{volume_id}:{now.strftime('%Y%m%d%H')}"
-    _snapshot_creation_locks.add(lock_key)
-
     await _enforce_quota(session, region, volume_id, policy_snapshots)
 
     name = _generate_snapshot_name(volume_id, now)
@@ -166,13 +164,11 @@ async def _process_volume(policy_id: str, volume_id: str, now: datetime) -> None
             f"Create snapshot HTTP error for volume {volume_id} "
             f"policy {policy_id}: status={he.status_code}, detail={he.detail}"
         )
-        _snapshot_creation_locks.discard(lock_key)
     except Exception as e:
         LOG.error(
             f"Failed to create scheduled snapshot for volume {volume_id} "
             f"with policy {policy_id}: {type(e).__name__}: {e}"
         )
-        _snapshot_creation_locks.discard(lock_key)
 
 
 def _get_trust_session(trust_id: str):

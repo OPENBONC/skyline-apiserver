@@ -297,6 +297,50 @@ async def delete_snapshot_policies(policy_ids: List[str]) -> Any:
 
 
 @check_db_connected
+async def check_and_update_scheduled(policy_id: str, volume_id: str, hour_key: str) -> bool:
+    """
+    检查并更新 last_scheduled_at，防止同一小时内重复调度。
+    :param policy_id: 策略ID
+    :param volume_id: 云硬盘ID
+    :param hour_key: 时间槽 key，格式 "YYYYMMDDHH"
+    :return: True 表示可以调度（首次或新的时间槽），False 表示已调度过
+    """
+    db = DB.get()
+    now_ms = int(time.time() * 1000)
+
+    # 查询当前记录
+    result = await db.execute(
+        select(SnapshotPolicyVolume).where(
+            SnapshotPolicyVolume.c.policy_id == policy_id,
+            SnapshotPolicyVolume.c.volume_id == volume_id,
+        )
+    )
+    row = result.first()
+    if row is None:
+        return False
+
+    last_scheduled_at = row["last_scheduled_at"]
+    if last_scheduled_at is not None:
+        # 将 last_scheduled_at (毫秒时间戳) 转换为 hour_key 比较
+        import datetime as dt
+        last_dt = dt.datetime.fromtimestamp(last_scheduled_at / 1000)
+        last_hour_key = last_dt.strftime("%Y%m%d%H")
+        if last_hour_key == hour_key:
+            return False
+
+    # 更新 last_scheduled_at
+    await db.execute(
+        update(SnapshotPolicyVolume)
+        .where(
+            SnapshotPolicyVolume.c.policy_id == policy_id,
+            SnapshotPolicyVolume.c.volume_id == volume_id,
+        )
+        .values(last_scheduled_at=now_ms)
+    )
+    return True
+
+
+@check_db_connected
 async def list_policy_volumes(
     policy_id: Optional[str] = None,
     volume_id: Optional[str] = None,
